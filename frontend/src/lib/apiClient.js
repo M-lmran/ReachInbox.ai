@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Empty/unset means "same origin" — the API is reached through the host's own
+// /api path (e.g. a Vercel rewrite or a reverse proxy). Without this fallback an
+// unset variable produced the literal string "undefined/api".
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 export const API_BASE = `${BACKEND_URL}/api`;
 export const TOKEN_KEY = "reachinbox_token";
 

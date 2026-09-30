@@ -24,17 +24,31 @@ So: **frontend on Vercel, API + worker on a container host.**
 ## Target architecture
 
 ```
-        Vercel                          Container host (Railway / Render / Fly)
-  ┌────────────────┐                ┌──────────────────────────────────────┐
-  │  React SPA     │─── HTTPS ─────▶│  api     (npm run start, :8010)      │
-  │  (static)      │                │  worker  (npm run worker)            │
-  └────────────────┘                └───────┬──────────────────┬───────────┘
+            Vercel                                Render
+  ┌────────────────────┐            ┌──────────────────────────────────────┐
+  │  React SPA         │── HTTPS ──▶│  Web Service — API + worker TOGETHER │
+  │  (Static Site)     │            │  start command: npm run start:all    │
+  └────────────────────┘            └───────┬──────────────────┬───────────┘
                                             │                  │
-                              Supabase/Neon │        Railway / │ Upstash
-                                 PostgreSQL │         Redis    │
+                              Supabase/Neon │      Render Key  │ Value (Redis)
+                                 PostgreSQL │                  │
                                             ▼                  ▼
-                                  Object storage (S3 / R2 / Supabase Storage)
+                                    Object storage (R2 / S3 / Supabase Storage)
 ```
+
+**Why the worker shares the API's service:** Render's free plan has no Background Worker
+service type. `start:all` runs both processes in one container via `concurrently -k`, so if either
+dies the container exits and Render restarts both. On a paid plan you would split them into a Web
+Service and a Background Worker instead.
+
+**Why not Vercel services:** a multi-service Vercel project was evaluated and rejected. Vercel runs
+functions on request only, so the BullMQ worker — a continuous Redis consumer — cannot run there at
+all, and scheduled emails would never send. The SSE queue stream and local-disk attachments would
+also break. Vercel is used for the static frontend only.
+
+> **Free-plan caveat:** Render sleeps a free Web Service after ~15 minutes idle, which stops the
+> worker. Keep it awake with an external pinger (cron-job.org, UptimeRobot) hitting `/api/health`
+> every 10 minutes, or scheduled sends will not fire on time.
 
 ---
 
@@ -42,10 +56,10 @@ So: **frontend on Vercel, API + worker on a container host.**
 
 Accounts on:
 
-1. **Vercel** — frontend
-2. **Railway** (or Render/Fly) — API + worker
+1. **Vercel** — frontend (Static Site)
+2. **Render** — API + worker (Web Service)
 3. **Supabase** or **Neon** — PostgreSQL
-4. **Railway Redis**, **Upstash**, or **Redis Cloud** — Redis
+4. **Render Key Value**, **Upstash**, or **Redis Cloud** — Redis
 5. **Cloudflare R2**, **AWS S3**, or **Supabase Storage** — attachments
 6. **A real SMTP provider** — Resend, SendGrid, Postmark, or SES
 
@@ -85,29 +99,32 @@ Create a bucket and note the credentials. Works with any S3-compatible provider.
 | Supabase Storage | `https://<project>.supabase.co/storage/v1/s3` | `true` |
 | MinIO | your host | `true` |
 
-## Step 4 — Deploy the API and worker
+## Step 4 — Deploy the API and worker to Render
 
-The repository includes a `Dockerfile` at the root that runs **either** process.
+One **Web Service** runs both processes.
 
-1. Create a project on your container host and point it at this repository.
-2. It will detect the `Dockerfile` automatically. Build context: **repository root**.
-3. Create **two services** from the same image:
-
-| Service | Start command |
+| Setting | Value |
 | --- | --- |
-| `api` | *(default — `npm run start`)* |
-| `worker` | `npm run worker` |
+| Type | Web Service |
+| Runtime | **Node** (or Docker — the root `Dockerfile` also works) |
+| **Root Directory** | `server` |
+| **Build Command** | `npm install --legacy-peer-deps && npm run build` |
+| **Start Command** | `npx prisma migrate deploy && npm run start:all` |
+| Health Check Path | `/api/health` |
 
-4. Set the environment variables on **both** services (see [Step 6](#step-6--environment-variables)).
-5. Run migrations **once**, after the API is up:
+- `npm run build` runs `prisma generate` — the client must exist before the app starts.
+- `npx prisma migrate deploy` creates the tables on first boot. It is idempotent, so it is safe on
+  every restart.
+- `npm run start:all` runs the API **and** the worker together via `concurrently -k`. If either
+  process dies, the container exits and Render restarts both.
 
-```bash
-npx prisma migrate deploy
-```
+> **Do not set `PORT`.** Render assigns it and the app reads `process.env.PORT` automatically.
 
-> Run this from a shell on the host, or as a one-off command. It is idempotent and safe to re-run.
+> **Free plan:** the service sleeps after ~15 minutes idle, which stops the worker. Add an external
+> pinger against `/api/health` every 10 minutes, or scheduled emails will not fire on time.
 
-6. Expose the API publicly and note its URL — e.g. `https://reachinbox-api.up.railway.app`.
+Note the public URL Render gives the service — e.g. `https://reachinbox-api.onrender.com`. It becomes
+`REACT_APP_BACKEND_URL` on the frontend and `FRONTEND_URL` is the Vercel URL.
 
 ## Step 5 — Deploy the frontend to Vercel
 
