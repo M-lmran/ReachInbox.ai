@@ -1,0 +1,36 @@
+# Keep the build context small and never bake secrets or local state into the image.
+
+**/node_modules
+**/build
+**/dist
+**/coverage
+
+# Secrets — must be injected at runtime, never copied in.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local attachment storage (runtime data, not source).
+server/uploads
+**/uploads
+
+# Local tooling / editor state
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Python bridge and docs are not needed in the Node image.
+backend
+plan
+memory
+test_reports
+tests
+image
+
+# Frontend is deployed separately (Vercel) and never belongs in this image.
+frontend
+
+*.md
+!README.md

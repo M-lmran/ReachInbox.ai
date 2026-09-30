@@ -1,0 +1,29 @@
+{
+  "summary": "Verified new throughput / rate-limit / idempotency / Slack-OAuth requirements. All 18 backend pytest tests pass (1 skipped: no failed jobs to retry). Key new tests: (a) Rate-limit reschedule with hourlyLimit=2 + 5 recipients yields exactly 2 sent, 3 scheduled with rescheduledForRateLimit=true, 0 failed; (b) No-duplicate-send with 3 recipients yields 3 unique sends each with previewUrl and stable sent count on repeat reads; (c) GET /api/auth/slack/oauth/start returns 501 with error.code=NOT_CONFIGURED (no crash); (d) GET /api/auth/config returns slackOAuthConfigured=false, supabaseConfigured present, devLoginEnabled=true. Regression: dev-login, /me (401 without token), scheduled/sent pagination, stats, search, retry 409 on non-failed, real Ethereal E2E send, Slack webhook connect/status/disconnect all still pass. Frontend Settings verified: slack-webhook-input + slack-connect present, slack-oauth-connect NOT rendered (since slackOAuthConfigured=false), SLACK_CLIENT_ID hint visible, connect->disconnect flow works end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_reachinbox.py",
+    "/app/backend/tests/test_new_requirements.py",
+    "/app/test_reports/pytest/iter2_all.xml",
+    "/app/test_reports/pytest/iter2_new.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Idempotency correctly implemented via atomic updateMany({where:{status:'scheduled'}}) claim in email.worker.ts — safe under WORKER_CONCURRENCY>1.",
+    "Rate-limit reschedule path preserves status='scheduled' + sets rescheduledForRateLimit=true and re-enqueues via BullMQ with jobId suffix rl:<window> (no drops, no fails, restart-safe).",
+    "Slack OAuth start returns 501+NOT_CONFIGURED via AppError instead of crashing — graceful degradation confirmed.",
+    "rateLimit.service.ts uses atomic Redis INCR with per-hour windowed keys and decrements on over-limit; TTL slightly exceeds window — correct.",
+    "email.service.ts enforces delayMs>=MIN_EMAIL_DELAY_MS and hourlyLimit>=1; scheduled offsets start+i*delayMs — correct."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_requirements.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Dev sign-in via POST /api/auth/dev-login {} (optionally {email:'x@...'} for a fresh sender). UI: 'Continue with Google' (data-testid=google-signin-button).",
+  "seed_data_creation": "Each rate-limit / idempotency test uses a fresh sender email (rltest+<uuid>@reachinbox.ai / idem+<uuid>@reachinbox.ai) so the per-sender Redis hourly counter starts clean.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For rate-limit tests, ALWAYS use a unique dev-login email — Redis hourly counter persists per sender per hour. Rate-limit reschedule test needs ~15-30s wait since last recipient's initial scheduledAt is start+(n-1)*delayMs; poll until sent==2 AND rescheduledForRateLimit-flagged==3. Slack OAuth 501 is by design (SLACK_CLIENT_ID/SECRET unset in this env) — not a bug.",
+  "rca of the issue": "No production issues. Test flake fixed by extending the rate-limit assertion wait to 45s (was 30s) and polling until both sent==2 AND flagged==3, since the 5th recipient is only enqueued 8s after schedule time."
+}
