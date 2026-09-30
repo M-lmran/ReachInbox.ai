@@ -61,7 +61,8 @@ Accounts on:
 3. **Supabase** or **Neon** — PostgreSQL
 4. **Render Key Value**, **Upstash**, or **Redis Cloud** — Redis
 5. **Cloudflare R2**, **AWS S3**, or **Supabase Storage** — attachments
-6. **A real SMTP provider** — Resend, SendGrid, Postmark, or SES
+6. *(optional)* **A real SMTP provider** — Resend, SendGrid, Postmark, or SES. **Not required for a
+   demo:** the app ships an Ethereal sandbox that captures messages without delivering them.
 
 ---
 
@@ -161,14 +162,15 @@ Note the public URL Render gives the service — e.g. `https://reachinbox-api.on
 | `S3_BUCKET` / `S3_REGION` / `S3_ENDPOINT` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | from Step 3 |
 | `S3_FORCE_PATH_STYLE` | per the table in Step 3 |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | **change from the defaults** |
-| `SMTP_*` | your real provider (see the note below) |
+| `ETHEREAL_HOST` / `ETHEREAL_PORT` / `ETHEREAL_USER` / `ETHEREAL_PASSWORD` | leave blank — a sandbox account is auto-created (see the note below) |
 | `ELASTICSEARCH_URL` | leave blank to use the PostgreSQL fallback |
 | `DEV_LOGIN_ENABLED` | **leave blank** — dev sign-in is off in production automatically |
 
-> **Email provider:** the app currently ships an Ethereal sandbox that delivers no real mail. To
-> send for real you must swap `EtherealEmailProvider` for your provider's SMTP settings — this is a
-> small code change, not just configuration. See
-> [Known limitations](#known-limitations).
+> **Email provider — Ethereal (sandbox).** With `ETHEREAL_USER` / `ETHEREAL_PASSWORD` left blank, a
+> test account is auto-created on first send. **No real email is delivered**: messages are captured
+> and viewable only via their preview URL, which the app stores and links from the Sent page. This
+> is a deliberate choice for a demo. Sending for real means swapping `EtherealEmailProvider` for a
+> real SMTP provider — a small code change, not just configuration.
 
 ### Vercel (frontend) — `frontend/.env`
 
@@ -235,7 +237,7 @@ Before making the deployment public:
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` exists **only** on the server, never in Vercel
 - [ ] `.env` files are not committed (they are gitignored)
 - [ ] Redis has persistence enabled
-- [ ] Real SMTP is configured (Ethereal delivers nothing)
+- [ ] You accept that Ethereal delivers **no real mail** (or a real SMTP provider is configured)
 
 ---
 
@@ -243,7 +245,7 @@ Before making the deployment public:
 
 | Limitation | Impact | Workaround |
 | --- | --- | --- |
-| **Ethereal email provider** | No real mail is delivered | Swap in a real SMTP provider (code change) |
+| **Ethereal email provider** (intentional for demos) | No real mail is delivered — messages are captured and viewable at their preview URL only | Swap in a real SMTP provider (code change) |
 | **No registration UI** | Users cannot self-sign-up | Create accounts in Supabase |
 | **No password reset** | Users cannot recover access | Reset manually in Supabase |
 | **SSE queue stream** | Works on a container host; would break on serverless | Keep the API off serverless |

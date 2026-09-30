@@ -44,6 +44,12 @@ export class EtherealEmailProvider implements EmailProvider {
     });
     this.account = { user, host };
     logger.info({ host, user }, 'Ethereal email transporter ready');
+    // Ethereal is a sandbox: messages are captured, not delivered. Stated loudly
+    // so a deployment cannot be mistaken for one that sends real mail.
+    logger.warn(
+      'Email provider is Ethereal (sandbox) — NO real email is delivered. ' +
+        'Messages are viewable only via their preview URL. Configure a real SMTP provider to send for real.',
+    );
   }
 
   getAccount() {
