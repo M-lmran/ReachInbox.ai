@@ -7,28 +7,74 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // const loadUser = useCallback(async () => {
+  //   try {
+  //     // No local token yet? A Supabase OAuth return leaves a session in the URL —
+  //     // exchange it for our own token before deciding the user is signed out.
+  //     // if (!authService.isAuthenticated()) {
+  //     //   const viaSupabase = await authService.syncSupabaseSession().catch(() => null);
+  //     //   if (viaSupabase) {
+  //     //     setUser(viaSupabase);
+  //     //     return;
+  //     //   }
+  //     // }
+  //     if (!authService.isAuthenticated()) {
+  //       let viaSupabase = null;
+
+  //         try {
+  //             viaSupabase = await authService.syncSupabaseSession();
+  //             console.log("Supabase session sync result:", viaSupabase);
+  //           } catch (error) {
+  //             console.error("Supabase session sync failed:", error);
+  //           }
+
+  //           if (viaSupabase) {
+  //             setUser(viaSupabase);
+  //             return;
+  //           }
+  //         }
+  //     if (!authService.isAuthenticated()) {
+  //       setUser(null);
+  //       return;
+  //     }
+  //     setUser(await authService.me());
+  //   } catch (_e) {
+  //     setUser(null);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, []);
   const loadUser = useCallback(async () => {
-    try {
-      // No local token yet? A Supabase OAuth return leaves a session in the URL —
-      // exchange it for our own token before deciding the user is signed out.
-      if (!authService.isAuthenticated()) {
-        const viaSupabase = await authService.syncSupabaseSession().catch(() => null);
-        if (viaSupabase) {
-          setUser(viaSupabase);
-          return;
-        }
+  try {
+    if (!authService.isAuthenticated()) {
+      let viaSupabase = null;
+
+      try {
+        viaSupabase = await authService.syncSupabaseSession();
+        console.log("Supabase session sync result:", viaSupabase);
+      } catch (error) {
+        console.error("Supabase session sync failed:", error);
       }
-      if (!authService.isAuthenticated()) {
-        setUser(null);
+
+      if (viaSupabase) {
+        setUser(viaSupabase);
         return;
       }
-      setUser(await authService.me());
-    } catch (_e) {
-      setUser(null);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+
+    if (!authService.isAuthenticated()) {
+      setUser(null);
+      return;
+    }
+
+    setUser(await authService.me());
+  } catch (error) {
+    console.error("loadUser failed:", error);
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadUser();
