@@ -36,8 +36,23 @@ class GoogleAuthProvider {
     token: string,
   ): Promise<{ email: string; name: string; avatarUrl?: string; googleId?: string } | null> {
     if (!this.isSupabaseReady()) return null;
+    // const { data, error } = await this.client().auth.getUser(token);
+    // if (error || !data.user?.email) return null;
     const { data, error } = await this.client().auth.getUser(token);
-    if (error || !data.user?.email) return null;
+
+    if (error) {
+      console.error("Supabase getUser failed:", {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
+      return null;
+    }
+
+    if (!data.user?.email) {
+      console.error("Supabase getUser returned no email");
+      return null;
+    }
     const meta = (data.user.user_metadata || {}) as Record<string, string>;
     return {
       email: data.user.email,
