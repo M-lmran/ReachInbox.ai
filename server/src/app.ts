@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 
 export function createApp(): Application {
   const app = express();
+  app.set('trust proxy', 1);
 
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
